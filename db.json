@@ -1,0 +1,6 @@
+{
+  "jobs": [
+    { "id": 1, "title": "Fix AC Unit", "status": "Assigned" },
+    { "id": 2, "title": "Repair Lights", "status": "In Progress" }
+  ]
+}
