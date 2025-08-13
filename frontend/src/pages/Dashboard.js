@@ -51,9 +51,10 @@ function Dashboard() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3000/Dashboard")
-      .then((res) => setNews(res.data))
-      .catch((err) => console.error(err));
+        .get("https://stinteportal-backend.onrender.com/Dashboard")
+        .then((res) => setNews(res.data))
+        .catch((err) => console.error(err));
+
   }, []);
 
   useEffect(() => {
