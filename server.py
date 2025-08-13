@@ -1,5 +1,6 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 CORS(app)  # Allow requests from React
@@ -62,5 +63,14 @@ def get_company_info():
 def get_employees():
     return jsonify(employees)
 
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    static_dir = os.path.join(app.root_path, 'static')
+    if path != "" and os.path.exists(os.path.join(static_dir, path)):
+        return send_from_directory(static_dir, path)
+    else:
+        return send_from_directory(static_dir, 'index.html')
+    
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
