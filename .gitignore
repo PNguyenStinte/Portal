@@ -57,3 +57,6 @@ backend/__pycache__/
 # === Testing ===
 coverage/
 *.lcov
+
+# Cache folders
+frontend/node_modules/.cache/
