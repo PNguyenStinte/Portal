@@ -16,10 +16,13 @@ function Login() {
   const handleGoogleLogin = async () => {
     const user = await signInWithGoogle();
     if (user) {
-      const email = user.email || "";
-      const allowedDomains = ["stinte.co", "upandcs.com"];
+      const email = (user.email || "").trim().toLowerCase(); // normalize email
+      const allowedDomains = ["stinte.co", "upandcs.com"]; // add all allowed domains
+      const isAllowed = allowedDomains.some(domain => email.endsWith(`@${domain.toLowerCase()}`));
 
-      if (allowedDomains.some(domain => email.endsWith(`@${domain}`))) {
+      console.log("Logging in email:", email, "Allowed:", isAllowed); // for debugging
+
+      if (isAllowed) {
         navigate('/dashboard');
       } else {
         alert("Access restricted to STINTE accounts only.");
