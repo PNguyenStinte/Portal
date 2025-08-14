@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvSK-IUHXso5s6qgnQXZTr17qS0NiLVHc",
-  authDomain: "portal-7d1e9.firebaseapp.com",
+  authDomain: "STINTE PORTAL",
   projectId: "portal-7d1e9",
   storageBucket: "portal-7d1e9.firebasestorage.app",
   messagingSenderId: "476178266373",
