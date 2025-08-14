@@ -18,27 +18,22 @@ const provider = new GoogleAuthProvider();
 // Request Google Calendar read-only scope
 provider.addScope("https://www.googleapis.com/auth/calendar.readonly");
 
-// Force Google account chooser every time
-provider.setCustomParameters({
-  prompt: "select_account"
-});
-
 const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Get Firebase ID token for backend
+    // Get the Firebase ID token (for your backend, if needed)
     const idToken = await user.getIdToken();
 
-    // Get Google OAuth access token
+    // Get the Google OAuth access token (for calling Google Calendar API)
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential.accessToken;
 
-    // STORE IN sessionStorage (clears on browser close)
-    sessionStorage.setItem('token', idToken);
-    sessionStorage.setItem('googleAccessToken', accessToken);
-    sessionStorage.setItem('user', JSON.stringify(user));
+    // Store both tokens
+    localStorage.setItem('token', idToken);
+    localStorage.setItem('googleAccessToken', accessToken);
+    localStorage.setItem('user', JSON.stringify(user));
 
     return user;
   } catch (error) {
