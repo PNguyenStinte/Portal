@@ -18,15 +18,14 @@ function Login() {
     const email = user.email || ""; // Ensure we have the email
     const allowedDomains = ["stinte.co", "upandcs.com"];
 
-    if (email.endsWith(`@${allowedDomain}`)) 
-      {
-      const token = await user.getIdToken();
-      sessionStorage.setItem("token", token);  
-      navigate('/dashboard');
-      } else 
-      {
-      alert("Access restricted to STINTE accounts only.");      
-      }
+  if (allowedDomains.some(domain => email.endsWith(`@${domain}`))) {
+    const token = await user.getIdToken();
+    sessionStorage.setItem("token", token);  
+    navigate('/dashboard');
+  } else {
+    alert("Access restricted to STINTE accounts only.");
+  }
+
     }
   };
 
