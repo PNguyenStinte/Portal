@@ -1,20 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import logo from '../assets/logo.png'; 
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 function Login() {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const auth = getAuth();
-    // Sign out Firebase user on page load
-    signOut(auth)
-      .then(() => {
-        sessionStorage.removeItem('token'); // Clear old token
-      })
-      .catch((error) => console.error("Sign-out error:", error));
-  }, []);
 
   const handleGoogleLogin = async () => {
     try {
