@@ -1,7 +1,9 @@
+// src/pages/Login.jsx
+
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import logo from '../assets/logo.png'; 
-import { signInWithGoogle } from '../firebase';
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 function Login() {
   const navigate = useNavigate();
@@ -13,40 +15,45 @@ function Login() {
     sessionStorage.removeItem('user');
   }, []);
 
-  const handleGoogleLogin = async () => {
-  try {
-    const user = await signInWithGoogle();
-    if (!user) {
-      console.error("No user returned from Firebase.");
-      return;
-    }
+  const signInWithGoogle = async () => {
+    try {
+      const auth = getAuth();
+      const provider = new GoogleAuthProvider();
 
-    // Normalize email: trim spaces and convert to lowercase
+      // Always prompt account chooser
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      return null;
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const user = await signInWithGoogle();
+    if (!user) return;
+
+    // Normalize email
     const email = (user.email || "").trim().toLowerCase();
     console.log("Email from Firebase:", email);
 
-    // List of allowed domains
     const allowedDomains = ["stinte.co", "upandcs.com", "usandcs.com"];
     console.log("Allowed domains:", allowedDomains);
 
-    // Check if email ends with any allowed domain
     const isAllowed = allowedDomains.some(domain =>
       email.endsWith(`@${domain.toLowerCase()}`)
     );
-
     console.log("Is email allowed?", isAllowed);
 
     if (isAllowed) {
-      // Optional: save to sessionStorage
+      // Save email to sessionStorage
       sessionStorage.setItem("user", JSON.stringify({ email }));
       navigate('/dashboard');
     } else {
       alert(`Access restricted to STINTE accounts only. Your email: ${email}`);
     }
-  } catch (error) {
-    console.error("Google login error:", error);
-    alert("An error occurred during login.");
-  }
   };
 
   return (
