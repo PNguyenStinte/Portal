@@ -11,7 +11,7 @@ company_info = {
     "address": "21121 West Hardy Road, Houston, TX 77073",
     "phone": "833-930-2583",
     "email": "info@stinte.co",
-    "logo_url": "http://localhost:5000/uploads/logo.png"
+    "logo_url": "https://stinteportal-backend.onrender.com/uploads/logo.png"
 }
 
 # Mock employee list
