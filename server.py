@@ -11,7 +11,7 @@ company_info = {
     "address": "21121 West Hardy Road, Houston, TX 77073",
     "phone": "833-930-2583",
     "email": "info@stinte.co",
-    "logo_url": "http://localhost:5000/static/logo.png"
+    "logo_url": "http://localhost:5000/uploads/logo.png"
 }
 
 # Mock employee list
@@ -71,6 +71,12 @@ def serve(path):
         return send_from_directory(static_dir, path)
     else:
         return send_from_directory(static_dir, 'index.html')
+    
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    uploads_dir = os.path.join(app.root_path, 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
     
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
