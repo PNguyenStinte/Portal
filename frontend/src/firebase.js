@@ -28,7 +28,10 @@ const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
+    // Get Firebase ID token for backend
     const idToken = await user.getIdToken();
+
+    // Get Google OAuth access token
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential.accessToken;
 
