@@ -1,7 +1,7 @@
 import { signInWithGoogle } from '../firebase';
+import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
-import { getAuth, signOut } from 'firebase/auth';
 import logo from '../assets/logo.png'; 
 
 function Login() {
@@ -10,20 +10,12 @@ function Login() {
   useEffect(() => {
     const auth = getAuth();
 
-    // Sign out when closing the browser/tab
-    const handleUnload = () => {
-      signOut(auth);
-      sessionStorage.removeItem('token'); // just to be extra sure
-    };
+    // Sign out any existing user on page load
+    signOut(auth).catch(() => {});
 
-    window.addEventListener("beforeunload", handleUnload);
-
-    // Redirect if token exists (current session)
-    const token = sessionStorage.getItem('token');
-    if (token) navigate('/dashboard');
-
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [navigate]);
+    // Remove any leftover token
+    sessionStorage.removeItem('token');
+  }, []);
 
   const handleGoogleLogin = async () => {
     const user = await signInWithGoogle();
@@ -38,6 +30,8 @@ function Login() {
         navigate('/dashboard');
       } else {
         alert("Access restricted to STINTE accounts only.");
+        const auth = getAuth();
+        signOut(auth); // Sign out unauthorized user immediately
       }
     }
   };
