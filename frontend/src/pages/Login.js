@@ -1,38 +1,41 @@
-import { signInWithGoogle } from '../firebase';
-import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import logo from '../assets/logo.png'; 
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const auth = getAuth();
-
-    // Sign out any existing user on page load
-    signOut(auth).catch(() => {});
-
-    // Remove any leftover token
+    // Clear any existing token on page load
     sessionStorage.removeItem('token');
   }, []);
 
   const handleGoogleLogin = async () => {
-    const user = await signInWithGoogle();
+    try {
+      const auth = getAuth();
+      const provider = new GoogleAuthProvider();
 
-    if (user) {
-      const email = user.email || ""; // Ensure we have the email
-      const allowedDomains = ["stinte.co", "upandcs.com"];
+      // Force Google account chooser every time
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-      if (allowedDomains.some(domain => email.endsWith(`@${domain}`))) {
-        const token = await user.getIdToken();
-        sessionStorage.setItem("token", token);  
-        navigate('/dashboard');
-      } else {
-        alert("Access restricted to STINTE accounts only.");
-        const auth = getAuth();
-        signOut(auth); // Sign out unauthorized user immediately
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      if (user) {
+        const email = user.email || "";
+        const allowedDomains = ["stinte.co", "upandcs.com"];
+
+        if (allowedDomains.some(domain => email.endsWith(`@${domain}`))) {
+          const token = await user.getIdToken();
+          sessionStorage.setItem("token", token);  
+          navigate('/dashboard');
+        } else {
+          alert("Access restricted to STINTE accounts only.");
+        }
       }
+    } catch (error) {
+      console.error("Google sign-in error:", error);
     }
   };
 
