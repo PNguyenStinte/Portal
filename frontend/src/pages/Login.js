@@ -16,7 +16,7 @@ function Login() {
 
   if (user) {
     const email = user.email || ""; // Ensure we have the email
-    const allowedDomain = "stinte.co"; 
+    const allowedDomains = ["stinte.co", "upandcs.com"];
 
     if (email.endsWith(`@${allowedDomain}`)) 
       {
