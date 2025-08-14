@@ -247,7 +247,7 @@ function Dashboard() {
           </div>
           <button
             className="w-full text-left px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
-            onClick={() => window.open("https://mail.google.com", "_blank")}
+            onClick={() => window.open("https://leads.buildops.com/login", "_blank")}
           >
             BUILDOPS
           </button>
@@ -356,6 +356,13 @@ function Dashboard() {
                 >
                   Contact Information
                 </button>
+                <button
+                  className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+                  onClick={() => window.open("/Daily Safety Meeting Checklist.pdf", "_blank")}
+                >
+                  Daily Safety Checklist
+                </button>
+
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
                   onClick={() => window.open("/employee-handbook.pdf", "_blank")}
