@@ -63,6 +63,12 @@ def get_company_info():
 def get_employees():
     return jsonify(employees)
 
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    uploads_dir = os.path.join(app.root_path, 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
+# CATCH-ALL — MUST BE LAST
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -70,13 +76,7 @@ def serve(path):
     if path != "" and os.path.exists(os.path.join(static_dir, path)):
         return send_from_directory(static_dir, path)
     else:
-        return send_from_directory(static_dir, 'index.html')
-    
-@app.route('/uploads/<path:filename>')
-def serve_upload(filename):
-    uploads_dir = os.path.join(app.root_path, 'uploads')
-    return send_from_directory(uploads_dir, filename)
-
+        return send_from_directory(static_dir, 'index.html')\
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
