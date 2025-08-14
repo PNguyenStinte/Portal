@@ -14,20 +14,39 @@ function Login() {
   }, []);
 
   const handleGoogleLogin = async () => {
+  try {
     const user = await signInWithGoogle();
-    if (user) {
-      const email = (user.email || "").trim().toLowerCase(); // normalize email
-      const allowedDomains = ["stinte.co", "upandcs.com"]; // add all allowed domains
-      const isAllowed = allowedDomains.some(domain => email.endsWith(`@${domain.toLowerCase()}`));
-
-      console.log("Logging in email:", email, "Allowed:", isAllowed); // for debugging
-
-      if (isAllowed) {
-        navigate('/dashboard');
-      } else {
-        alert("Access restricted to STINTE accounts only.");
-      }
+    if (!user) {
+      console.error("No user returned from Firebase.");
+      return;
     }
+
+    // Normalize email: trim spaces and convert to lowercase
+    const email = (user.email || "").trim().toLowerCase();
+    console.log("Email from Firebase:", email);
+
+    // List of allowed domains
+    const allowedDomains = ["stinte.co", "upandcs.com", "usandcs.com"];
+    console.log("Allowed domains:", allowedDomains);
+
+    // Check if email ends with any allowed domain
+    const isAllowed = allowedDomains.some(domain =>
+      email.endsWith(`@${domain.toLowerCase()}`)
+    );
+
+    console.log("Is email allowed?", isAllowed);
+
+    if (isAllowed) {
+      // Optional: save to sessionStorage
+      sessionStorage.setItem("user", JSON.stringify({ email }));
+      navigate('/dashboard');
+    } else {
+      alert(`Access restricted to STINTE accounts only. Your email: ${email}`);
+    }
+  } catch (error) {
+    console.error("Google login error:", error);
+    alert("An error occurred during login.");
+  }
   };
 
   return (
