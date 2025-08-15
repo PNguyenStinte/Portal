@@ -43,6 +43,7 @@ function Dashboard() {
   const [selectedEvent, setSelectedEvent] = useState(null); 
   const [view, setView] = useState("month");      
   const [date, setDate] = useState(new Date());   
+  const [warehouseOpen, setWarehouseOpen] = useState(false);
 
   const navigate = useNavigate();
   const auth = getAuth();
@@ -354,6 +355,12 @@ function Dashboard() {
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
                   onClick={() => navigate("/contact-info")}
                 >
+                  Ask IT
+                </button>
+                <button
+                  className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+                  onClick={() => navigate("/contact-info")}
+                >
                   Contact Information
                 </button>
                 <button
@@ -394,6 +401,37 @@ function Dashboard() {
               </div>
             )}
           </div>
+          {/* WAREHOUSE */}
+<div>
+  <button
+    onClick={() => setWarehouseOpen(!warehouseOpen)}
+    className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
+  >
+    WAREHOUSE
+    {warehouseOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+  </button>
+  <div
+    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+      warehouseOpen ? "max-h-40" : "max-h-0"
+    }`}
+  >
+    <div className="pl-6 space-y-1 mt-1">
+      <button
+        className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+        onClick={() => navigate("/warehouse/material")}
+      >
+        Material
+      </button>
+      <button
+        className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+        onClick={() => navigate("/warehouse/request")}
+      >
+        Request
+      </button>
+    </div>
+  </div>
+</div>
+
         </nav>
 
         <div className="p-4 border-t">
