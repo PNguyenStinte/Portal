@@ -16,12 +16,12 @@ function ContactInfo() {
 
   useEffect(() => {
     axios
-      .get("https://stinteportal-backend.onrender.com/company-info")
+      .get("http://localhost:5000/company-info")
       .then((res) => setCompanyInfo(res.data))
       .catch((err) => console.error(err));
 
     axios
-      .get("https://stinteportal-backend.onrender.com/employees")
+      .get("http://localhost:5000/employees")
       .then((res) => setEmployees(res.data))
       .catch((err) => console.error(err));
   }, []);

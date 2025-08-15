@@ -1,13 +1,12 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PrivateRoute from './components/PrivateRoute';
-import ContactInfo from "./pages/ContactInfo";
-
+import ContactInfo from './pages/ContactInfo';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter basename={process.env.PUBLIC_URL}>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route
@@ -20,7 +19,7 @@ function App() {
         />
         <Route path="/contact-info" element={<ContactInfo />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 

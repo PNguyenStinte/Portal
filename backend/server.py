@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os
 
@@ -11,7 +11,7 @@ company_info = {
     "address": "21121 West Hardy Road, Houston, TX 77073",
     "phone": "833-930-2583",
     "email": "info@stinte.co",
-    "logo_url": "https://stinteportal-backend.onrender.com/uploads/logo.png"
+    "logo_url": "http://localhost:5000/uploads/logo.png"
 }
 
 # Mock employee list
@@ -57,6 +57,13 @@ employees = [
 
 @app.route("/company-info", methods=["GET"])
 def get_company_info():
+    company_info = {
+        "name": "STRATEGIC INFRASTRUCTURE TECHNOLOGIES",
+        "address": "21121 West Hardy Road, Houston, TX 77073",
+        "phone": "833-930-2583",
+        "email": "info@stinte.co",
+        "logo_url": f"{request.scheme}://{request.host}/uploads/logo.png"
+    }
     return jsonify(company_info)
 
 @app.route("/employees", methods=["GET"])
@@ -76,8 +83,8 @@ def serve(path):
     if path != "" and os.path.exists(os.path.join(static_dir, path)):
         return send_from_directory(static_dir, path)
     else:
-        return send_from_directory(static_dir, 'index.html')\
-    
+        return send_from_directory(static_dir, 'index.html')
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
