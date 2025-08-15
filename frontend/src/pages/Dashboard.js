@@ -40,9 +40,9 @@ function Dashboard() {
   const [googleToken, setGoogleToken] = useState(null);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null); 
-  const [view, setView] = useState("month");      
-  const [date, setDate] = useState(new Date());   
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [view, setView] = useState("month");
+  const [date, setDate] = useState(new Date());
   const [warehouseOpen, setWarehouseOpen] = useState(false);
 
   const navigate = useNavigate();
@@ -52,9 +52,9 @@ function Dashboard() {
 
   useEffect(() => {
     axios
-        .get("https://stinteportal-backend.onrender.com/Dashboard")
-        .then((res) => setNews(res.data))
-        .catch((err) => console.error(err));
+      .get("https://stinteportal-backend.onrender.com/Dashboard")
+      .then((res) => setNews(res.data))
+      .catch((err) => console.error(err));
 
   }, []);
 
@@ -64,6 +64,18 @@ function Dashboard() {
     });
     return () => unsub();
   }, [auth]);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("googleToken");
+    if (storedToken) {
+      setGoogleToken(storedToken);
+      fetchCalendarEvents(storedToken); // load events automatically
+    }
+
+    const storedEvents = localStorage.getItem("calendarEvents");
+    if (storedEvents) setCalendarEvents(JSON.parse(storedEvents));
+  }, []);
+
 
   const handleSignOut = async () => {
     try {
@@ -87,6 +99,7 @@ function Dashboard() {
       const accessToken = credential?.accessToken;
       if (accessToken) {
         setGoogleToken(accessToken);
+        localStorage.setItem("googleToken", accessToken);
         fetchCalendarEvents(accessToken);
       } else {
         console.warn("No access token returned from Google sign-in.");
@@ -95,6 +108,7 @@ function Dashboard() {
       console.error("Google sign-in failed:", err);
     }
   };
+
 
   const fetchCalendarEvents = useCallback(
     async (accessToken) => {
@@ -122,28 +136,20 @@ function Dashboard() {
           console.warn("Google token invalid or expired. Please reconnect.");
           setGoogleToken(null);
           setCalendarEvents([]);
-          setLoadingCalendar(false);
+          localStorage.removeItem("googleToken");
+          localStorage.removeItem("calendarEvents");
           return;
         }
 
         const data = await res.json();
-        if (!data.items) {
-          setCalendarEvents([]);
-          setLoadingCalendar(false);
-          return;
-        }
-
-        const events = data.items.map((ev) => {
+        const events = (data.items || []).map((ev) => {
           const startRaw = ev.start?.dateTime ?? ev.start?.date;
           const endRaw = ev.end?.dateTime ?? ev.end?.date;
-          const start = startRaw ? new Date(startRaw) : new Date();
-          const end = endRaw ? new Date(endRaw) : start;
-
           return {
             id: ev.id,
             title: ev.summary || "(no title)",
-            start,
-            end,
+            start: startRaw ? new Date(startRaw) : new Date(),
+            end: endRaw ? new Date(endRaw) : new Date(startRaw),
             description: ev.description || "",
             location: ev.location || "",
             raw: ev,
@@ -151,6 +157,7 @@ function Dashboard() {
         });
 
         setCalendarEvents(events);
+        localStorage.setItem("calendarEvents", JSON.stringify(events)); // persist
       } catch (err) {
         console.error("Error fetching calendar events:", err);
       } finally {
@@ -160,12 +167,17 @@ function Dashboard() {
     [setCalendarEvents]
   );
 
+
   const refreshCalendar = async () => {
-    if (!googleToken) {
-      await connectGoogleCalendar();
-      return;
-    }
+    if (!googleToken) return connectGoogleCalendar();
     await fetchCalendarEvents(googleToken);
+  };
+
+  const disconnectCalendar = () => {
+    setGoogleToken(null);
+    setCalendarEvents([]);
+    localStorage.removeItem("googleToken");
+    localStorage.removeItem("calendarEvents");
   };
 
   const CalendarControls = () => (
@@ -186,10 +198,7 @@ function Dashboard() {
             Refresh Calendar
           </button>
           <button
-            onClick={() => {
-              setGoogleToken(null);
-              setCalendarEvents([]);
-            }}
+            onClick={disconnectCalendar}
             className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
           >
             Disconnect
@@ -198,6 +207,7 @@ function Dashboard() {
       )}
     </div>
   );
+
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -208,7 +218,7 @@ function Dashboard() {
           onClick={() => navigate("/dashboard")}
         >
           <img src={logo} alt="Logo" className="h-12" />
-          
+
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <div>
@@ -341,7 +351,7 @@ function Dashboard() {
               </div>
             )}
           </div>
-        <div>
+          <div>
             <button
               onClick={() => setStinteOpen(!stinteOpen)}
               className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
@@ -357,6 +367,7 @@ function Dashboard() {
                 >
                   Ask IT
                 </button>
+
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
                   onClick={() => navigate("/contact-info")}
@@ -389,6 +400,12 @@ function Dashboard() {
                 </button>
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+                  onClick={() => navigate("/stinte/material_information")}
+                >
+                  Material Information
+                </button>
+                <button
+                  className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
                   onClick={() =>
                     window.open(
                       "https://docs.google.com/forms/d/e/1FAIpQLSe8a8mo66k8k-ZhcUShwpB-_25onm1XclrsyqkrAUtFbSebRQ/viewform",
@@ -402,35 +419,34 @@ function Dashboard() {
             )}
           </div>
           {/* WAREHOUSE */}
-<div>
-  <button
-    onClick={() => setWarehouseOpen(!warehouseOpen)}
-    className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
-  >
-    WAREHOUSE
-    {warehouseOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-  </button>
-  <div
-    className={`overflow-hidden transition-all duration-300 ease-in-out ${
-      warehouseOpen ? "max-h-40" : "max-h-0"
-    }`}
-  >
-    <div className="pl-6 space-y-1 mt-1">
-      <button
-        className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-        onClick={() => navigate("/warehouse/material")}
-      >
-        Material
-      </button>
-      <button
-        className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-        onClick={() => navigate("/warehouse/request")}
-      >
-        Request
-      </button>
-    </div>
-  </div>
-</div>
+          <div>
+            <button
+              onClick={() => setWarehouseOpen(!warehouseOpen)}
+              className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
+            >
+              WAREHOUSE
+              {warehouseOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${warehouseOpen ? "max-h-40" : "max-h-0"
+                }`}
+            >
+              <div className="pl-6 space-y-1 mt-1">
+                <button
+                  className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+                  onClick={() => navigate("/warehouse/material")}
+                >
+                  Material
+                </button>
+                <button
+                  className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
+                  onClick={() => navigate("/warehouse/request")}
+                >
+                  Request
+                </button>
+              </div>
+            </div>
+          </div>
 
         </nav>
 

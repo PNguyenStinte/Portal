@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import PrivateRoute from './components/PrivateRoute';
-import ContactInfo from './pages/ContactInfo';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import PrivateRoute from "./components/PrivateRoute";
+import ContactInfo from "./pages/ContactInfo";
+import WarehouseMaterials from "./pages/Material";
 
 function App() {
   return (
@@ -14,6 +15,14 @@ function App() {
           element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/stinte/material_information"
+          element={
+            <PrivateRoute>
+              <WarehouseMaterials />
             </PrivateRoute>
           }
         />
