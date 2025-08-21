@@ -3,7 +3,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PrivateRoute from "./components/PrivateRoute";
 import ContactInfo from "./pages/ContactInfo";
-import WarehouseMaterials from "./pages/Material";
+import Materials from "./pages/Material";
+import Schedule from "./pages/Schedule";
 
 function App() {
   return (
@@ -22,11 +23,12 @@ function App() {
           path="/stinte/material_information"
           element={
             <PrivateRoute>
-              <WarehouseMaterials />
+              <Materials />
             </PrivateRoute>
           }
         />
-        <Route path="/contact-info" element={<ContactInfo />} />
+        <Route path="/contact_info" element={<ContactInfo />} />
+        <Route path="/schedule" element={<Schedule/>} />
       </Routes>
     </BrowserRouter>
   );

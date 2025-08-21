@@ -1,35 +1,10 @@
 // src/pages/Dashboard.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import logo from "../assets/logo.png";
-import { ChevronDown, ChevronUp, X } from "lucide-react"; // Added X icon
-import {
-  getAuth,
-  signOut as firebaseSignOut,
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-} from "firebase/auth";
-
-// react-big-calendar + date-fns localizer
-import { Calendar as BigCalendar, dateFnsLocalizer } from "react-big-calendar";
-import format from "date-fns/format";
-import parse from "date-fns/parse";
-import startOfWeek from "date-fns/startOfWeek";
-import getDay from "date-fns/getDay";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-
-const locales = {
-  "en-US": require("date-fns/locale/en-US"),
-};
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }),
-  getDay,
-  locales,
-});
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { getAuth, signOut as firebaseSignOut } from "firebase/auth";
 
 function Dashboard() {
   const [news, setNews] = useState([]);
@@ -37,177 +12,28 @@ function Dashboard() {
   const [costcoOpen, setCostcoOpen] = useState(false);
   const [stinteOpen, setStinteOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
-  const [googleToken, setGoogleToken] = useState(null);
-  const [calendarEvents, setCalendarEvents] = useState([]);
-  const [loadingCalendar, setLoadingCalendar] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [view, setView] = useState("month");
-  const [date, setDate] = useState(new Date());
   const [warehouseOpen, setWarehouseOpen] = useState(false);
 
   const navigate = useNavigate();
   const auth = getAuth();
-
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
     axios
       .get("https://stinteportal-backend.onrender.com/Dashboard")
       .then((res) => setNews(res.data))
       .catch((err) => console.error(err));
-
   }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u || null);
-    });
-    return () => unsub();
-  }, [auth]);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem("googleToken");
-    if (storedToken) {
-      setGoogleToken(storedToken);
-      fetchCalendarEvents(storedToken); // load events automatically
-    }
-
-    const storedEvents = localStorage.getItem("calendarEvents");
-    if (storedEvents) setCalendarEvents(JSON.parse(storedEvents));
-  }, []);
-
 
   const handleSignOut = async () => {
     try {
       await firebaseSignOut(auth);
       sessionStorage.clear();
       localStorage.clear();
-      setGoogleToken(null);
-      setCalendarEvents([]);
       navigate("/");
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
-
-  const connectGoogleCalendar = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope("https://www.googleapis.com/auth/calendar.readonly");
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const accessToken = credential?.accessToken;
-      if (accessToken) {
-        setGoogleToken(accessToken);
-        localStorage.setItem("googleToken", accessToken);
-        fetchCalendarEvents(accessToken);
-      } else {
-        console.warn("No access token returned from Google sign-in.");
-      }
-    } catch (err) {
-      console.error("Google sign-in failed:", err);
-    }
-  };
-
-
-  const fetchCalendarEvents = useCallback(
-    async (accessToken) => {
-      if (!accessToken) return;
-      setLoadingCalendar(true);
-
-      try {
-        const timeMin = new Date().toISOString();
-        const timeMax = new Date();
-        timeMax.setDate(timeMax.getDate() + 60);
-        const timeMaxISO = timeMax.toISOString();
-
-        const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(
-          timeMin
-        )}&timeMax=${encodeURIComponent(timeMaxISO)}&singleEvents=true&orderBy=startTime&maxResults=2500`;
-
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-          },
-        });
-
-        if (res.status === 401 || res.status === 403) {
-          console.warn("Google token invalid or expired. Please reconnect.");
-          setGoogleToken(null);
-          setCalendarEvents([]);
-          localStorage.removeItem("googleToken");
-          localStorage.removeItem("calendarEvents");
-          return;
-        }
-
-        const data = await res.json();
-        const events = (data.items || []).map((ev) => {
-          const startRaw = ev.start?.dateTime ?? ev.start?.date;
-          const endRaw = ev.end?.dateTime ?? ev.end?.date;
-          return {
-            id: ev.id,
-            title: ev.summary || "(no title)",
-            start: startRaw ? new Date(startRaw) : new Date(),
-            end: endRaw ? new Date(endRaw) : new Date(startRaw),
-            description: ev.description || "",
-            location: ev.location || "",
-            raw: ev,
-          };
-        });
-
-        setCalendarEvents(events);
-        localStorage.setItem("calendarEvents", JSON.stringify(events)); // persist
-      } catch (err) {
-        console.error("Error fetching calendar events:", err);
-      } finally {
-        setLoadingCalendar(false);
-      }
-    },
-    [setCalendarEvents]
-  );
-
-
-  const refreshCalendar = async () => {
-    if (!googleToken) return connectGoogleCalendar();
-    await fetchCalendarEvents(googleToken);
-  };
-
-  const disconnectCalendar = () => {
-    setGoogleToken(null);
-    setCalendarEvents([]);
-    localStorage.removeItem("googleToken");
-    localStorage.removeItem("calendarEvents");
-  };
-
-  const CalendarControls = () => (
-    <div className="flex items-center gap-3">
-      {!googleToken ? (
-        <button
-          onClick={connectGoogleCalendar}
-          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Connect Google Calendar
-        </button>
-      ) : (
-        <>
-          <button
-            onClick={refreshCalendar}
-            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Refresh Calendar
-          </button>
-          <button
-            onClick={disconnectCalendar}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            Disconnect
-          </button>
-        </>
-      )}
-    </div>
-  );
-
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -351,6 +177,12 @@ function Dashboard() {
               </div>
             )}
           </div>
+          <button
+                  className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
+                  onClick={() => navigate("/schedule")}
+                >
+                  SCHEDULE
+          </button>
           <div>
             <button
               onClick={() => setStinteOpen(!stinteOpen)}
@@ -363,14 +195,13 @@ function Dashboard() {
               <div className="pl-6 space-y-1 mt-1">
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-                  onClick={() => navigate("/contact-info")}
+                  onClick={() => navigate("/contact_info")}
                 >
                   Ask IT
                 </button>
-
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-                  onClick={() => navigate("/contact-info")}
+                  onClick={() => navigate("/contact_info")}
                 >
                   Contact Information
                 </button>
@@ -465,7 +296,6 @@ function Dashboard() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold">Company News Board</h2>
           <div className="flex gap-2 items-center">
-            <CalendarControls />
           </div>
         </div>
 
@@ -480,119 +310,6 @@ function Dashboard() {
             </article>
           ))}
         </div>
-
-        {/* Calendar area */}
-        <div className="bg-white p-4 rounded shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold">My Google Calendar</h3>
-            <div className="text-sm text-gray-600">
-              {user ? user.email : "Not signed in"}
-            </div>
-          </div>
-
-          {loadingCalendar ? (
-            <div className="p-6 text-center text-gray-600">Loading events…</div>
-          ) : googleToken && calendarEvents.length > 0 ? (
-            <BigCalendar
-              localizer={localizer}
-              events={calendarEvents}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: 600 }}
-              onSelectEvent={(event) => setSelectedEvent(event)}
-              view={view}
-              onView={(newView) => setView(newView)}
-              date={date}
-              onNavigate={(newDate) => setDate(newDate)}
-              views={['month', 'week', 'day', 'agenda']}
-              popup
-            />
-          ) : googleToken && calendarEvents.length === 0 ? (
-            <div className="p-6 text-center text-gray-600">
-              No upcoming events in the next 60 days.
-            </div>
-          ) : (
-            <div className="p-6 text-center">
-              <p className="mb-4 text-gray-700">
-                Connect your Google account to view your personal calendar events
-              </p>
-              <div className="flex justify-center">
-                <button
-                  onClick={connectGoogleCalendar}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Connect Google Calendar
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sleek Event Modal */}
-        {selectedEvent && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm z-50">
-            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md transform transition-all scale-100">
-              {/* Header */}
-              <div className="flex justify-between items-center border-b pb-3">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {selectedEvent.title}
-                </h2>
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="mt-4 space-y-2 text-gray-700">
-                <p>
-                  <strong>Start:</strong>{" "}
-                  {selectedEvent.start.toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </p>
-                <p>
-                  <strong>End:</strong>{" "}
-                  {selectedEvent.end.toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </p>
-                {selectedEvent.location && (
-                  <p>
-                    <strong>Location:</strong> {selectedEvent.location}
-                  </p>
-                )}
-                {selectedEvent.description && (
-                  <p className="mt-2 whitespace-pre-line">
-                    {selectedEvent.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="mt-6 text-right">
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

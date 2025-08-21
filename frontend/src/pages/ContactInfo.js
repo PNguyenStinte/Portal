@@ -1,78 +1,152 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
   ArrowsUpDownIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/solid";
+import { Link } from "react-router-dom";
+
+// ✅ Define columns outside so they don’t change on re-renders
+const contactColumns = [
+  { key: "name", label: "Name" },
+  { key: "position", label: "Role" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+];
 
 function ContactInfo() {
   const [companyInfo, setCompanyInfo] = useState({});
-  const [employees, setEmployees] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
-  useEffect(() => {
-    axios
-      .get("http://localhost:5000/company-info")
-      .then((res) => setCompanyInfo(res.data))
-      .catch((err) => console.error(err));
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
 
-    axios
-      .get("http://localhost:5000/employees")
-      .then((res) => setEmployees(res.data))
-      .catch((err) => console.error(err));
+  // Fetch company + contacts
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const resCompany = await axios.get(`${API_BASE}/company-info`);
+        setCompanyInfo(resCompany.data);
+
+        const resContacts = await axios.get(`${API_BASE}/employees`);
+        setContacts(resContacts.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, [API_BASE]);
+
+  // Sorting
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const getSortIcon = useCallback((key, sortConfig) => {
+    const isActive = sortConfig.key === key;
+    const color = isActive ? "text-blue-500" : "text-gray-400";
+
+    if (!isActive)
+      return <ArrowsUpDownIcon className={`w-4 h-4 inline ml-1 ${color}`} />;
+
+    return sortConfig.direction === "asc" ? (
+      <ChevronUpIcon className={`w-4 h-4 inline ml-1 ${color}`} />
+    ) : (
+      <ChevronDownIcon className={`w-4 h-4 inline ml-1 ${color}`} />
+    );
   }, []);
 
-  const columns = [
-    { key: "name", label: "Name" },
-    { key: "position", label: "Position" },
-    { key: "phone", label: "Phone" },
-    { key: "email", label: "Email" },
-  ];
+  // Filter + Sort
+  const sortedFilteredContacts = useMemo(() => {
+    return [...contacts]
+      .filter((c) =>
+        contactColumns
+          .map((col) => c[col.key])
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (!sortConfig.key) return 0;
+        const valA = a[sortConfig.key]?.toString().toLowerCase() || "";
+        const valB = b[sortConfig.key]?.toString().toLowerCase() || "";
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+  }, [contacts, search, sortConfig]);
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
-      }
-      return { key, direction: "asc" };
-    });
-  };
+  // ✅ Reusable table renderer
+  const renderTable = (title, materials, search, setSearch, sortConfig, columns) => (
+    <section className="bg-white p-4 rounded shadow mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <div className="relative w-64">
+          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border border-gray-300 rounded pl-10 pr-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
 
-  const getSortIcon = (key) => {
-    const isActive = sortConfig.key === key;
-    const activeColor = isActive ? "text-blue-500" : "text-gray-400";
-
-    if (!isActive) {
-      return (
-        <ArrowsUpDownIcon className={`w-4 h-4 inline ml-1 ${activeColor}`} />
-      );
-    }
-    return sortConfig.direction === "asc" ? (
-      <ChevronUpIcon className={`w-4 h-4 inline ml-1 ${activeColor}`} />
-    ) : (
-      <ChevronDownIcon className={`w-4 h-4 inline ml-1 ${activeColor}`} />
-    );
-  };
-
-  const sortedEmployees = [...employees]
-    .filter((emp) =>
-      [emp.name, emp.position, emp.phone, emp.email]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (!sortConfig.key) return 0;
-      const valueA = a[sortConfig.key]?.toString().toLowerCase();
-      const valueB = b[sortConfig.key]?.toString().toLowerCase();
-      if (valueA < valueB) return sortConfig.direction === "asc" ? -1 : 1;
-      if (valueA > valueB) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
+      <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200">
+        <table className="w-full border-collapse" role="table">
+          <thead className="bg-gray-100 sticky top-0 shadow-sm">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  scope="col"
+                  key={col.key}
+                  className={`px-4 py-3 text-left font-semibold text-sm uppercase tracking-wider cursor-pointer ${
+                    sortConfig.key === col.key ? "text-blue-500" : "text-gray-700"
+                  }`}
+                  onClick={() => handleSort(col.key)}
+                >
+                  {col.label} {getSortIcon(col.key, sortConfig)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {materials.length > 0 ? (
+              materials.map((item, idx) => (
+                <tr
+                  key={idx}
+                  className="hover:bg-gray-50 transition-colors duration-150"
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className="border-t px-4 py-2">
+                      {item[col.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="text-center text-gray-500 py-4 border-t"
+                >
+                  No contacts found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -92,7 +166,6 @@ function ContactInfo() {
             Company Contact Information
           </h2>
         </div>
-
         <p>
           <strong>Name:</strong> {companyInfo.name}
         </p>
@@ -127,79 +200,14 @@ function ContactInfo() {
         </p>
       </section>
 
-      {/* Employee List */}
-      <section className="bg-white p-4 rounded shadow">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Employee Directory</h2>
-          <div className="relative w-64">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search employees..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border border-gray-300 rounded pl-10 pr-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200">
-          <table className="w-full border-collapse">
-            <thead className="bg-gray-100 sticky top-0 shadow-sm">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-4 py-3 text-left font-semibold text-sm uppercase tracking-wider cursor-pointer ${
-                      sortConfig.key === col.key
-                        ? "text-blue-500"
-                        : "text-gray-700"
-                    }`}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    {col.label} {getSortIcon(col.key)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedEmployees.length > 0 ? (
-                sortedEmployees.map((emp) => (
-                  <tr
-                    key={emp.id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="border-t px-4 py-2">{emp.name}</td>
-                    <td className="border-t px-4 py-2">{emp.position}</td>
-                    <td className="border-t px-4 py-2">{emp.phone}</td>
-                    <td className="border-t px-4 py-2">
-                      <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-                          emp.email
-                        )}&su=Hello%20${encodeURIComponent(emp.name)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {emp.email}
-                      </a>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="4"
-                    className="text-center text-gray-500 py-4 border-t"
-                  >
-                    No employees found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {renderTable(
+        "Company Contacts",
+        sortedFilteredContacts,
+        search,
+        setSearch,
+        sortConfig,
+        contactColumns
+      )}
     </div>
   );
 }

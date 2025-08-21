@@ -1,188 +1,156 @@
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+import psycopg2
+import psycopg2.extras
 import os
+import json
 
 app = Flask(__name__)
-CORS(app)  # Allow requests from React
+CORS(app)
 
-# Mock company info
-company_info = {
-    "name": "STRATEGIC INFRASTRUCTURE TECHNOLOGIES",
-    "address": "21121 West Hardy Road, Houston, TX 77073",
-    "phone": "833-930-2583",
-    "email": "info@stinte.co",
-    "logo_url": "http://localhost:5000/uploads/logo.png"
-}
+def get_db_connection():
+    conn = psycopg2.connect(
+        host="localhost",
+        database="technician_portal",   # change if your DB name is different
+        user="postgres",                # change if your username is different
+        password="Stinte1!"             # change to your real password
+    )
+    return conn
 
-# Mock employee list
-employees = [
-    {"id": 1, "name": "Don Nelson", "position": "Chief Operating Officer", "phone": "281-658-9603", "email": "dnelson@stinte.co"},
-    {"id": 2, "name": "Dennis Llaneza", "position": "General Manager", "phone": "832-995-6104", "email": "dllaneza@stinte.co"},
-    {"id": 3, "name": "Chris Jones", "position": "Assistant General Manager", "phone": "979-922-4182", "email": "cjones@stinte.co"},
-    {"id": 4, "name": "Magda Nelson", "position": "Chief Financial Officer", "phone": "732-754-6047", "email": "magda.nelson@stinte.co"},
-    {"id": 5, "name": "Xavier Llaneza", "position": "Senior Project Manager", "phone": "425-205-7020", "email": "xllaneza@stinte.co"},
-    {"id": 6, "name": "Colby Sheets", "position": "Senior Project Manager", "phone": "425 830-1533", "email": "csheets@stinte.co"},
-    {"id": 7, "name": "Chris Young(Canada)", "position": "Operations Manager", "phone": "416-666-1270", "email": "cyoung@stinte.co"},
-    {"id": 8, "name": "Andy Garcia", "position": "Project Manager", "phone": "346-616-8335", "email": "agarcia@stinte.co"},
-    {"id": 9, "name": "Sergio Sanchez", "position": "Field Service Manager", "phone": "346-490-0986", "email": "ssanchez@stinte.co"},
-    {"id": 10, "name": "Matthew Nelson", "position": "Warehouse Manager", "phone": "832-928-2617", "email": "matthew@upandcs.com"},
-    {"id": 11, "name": "Frank Nelson", "position": "Electrical Coordinator", "phone": "936-242-5927", "email": "frank@upandcs.com"},
-    {"id": 12, "name": "Rachel Cooper", "position": "Executive Assistant ", "phone": "832-387-7055", "email": "rcooper@stinte.co"},
-    {"id": 13, "name": "Melissa Pena", "position": "Office Administrator", "phone": "281-964-8206", "email": "mpena@stinte.co"},
-    {"id": 14, "name": "Leslyn Paracuelles", "position": "Scheduling Analyst", "phone": "346-673-1611", "email": "lparacuelles@stinte.co"},
-    {"id": 15, "name": "Kim Flowers", "position": "Travel Coordinator", "phone": "832-679-3892", "email": "kflowers@stinte.co"},
-    {"id": 16, "name": "Jana Rose", "position": "Accounting Assistant", "phone": "281-414-3994", "email": "jrose@stinte.co"},
-    {"id": 17, "name": "Megan Hesse", "position": "Accounting Assistant", "phone": "936-697-5811", "email": "mhesse@stinte.co"},
-    {"id": 18, "name": "Evan Smith", "position": "Warehouse & Logistics", "phone": "832-691-7279", "email": "esmith@stinte.co"},
-    {"id": 19, "name": "Justin Galea-Abela(Canada)", "position": "Senior Technician", "phone": "647-325-9210", "email": "jabela@stinte.co"},
-    {"id": 20, "name": "Umesh Gounder(Canada)", "position": "Lead Field Technician", "phone": "647-740-9247", "email": "ugounder@stinte.co"},
-    {"id": 21, "name": "Alexis Sanchez", "position": "Field Service Technician", "phone": "346-630-0321", "email": "asanchez@stinte.co"},
-    {"id": 22, "name": "Chris Alaniz", "position": "Electrical/Data Technician", "phone": "936-442-0893", "email": "calaniz@stinte.co"},
-    {"id": 23, "name": "Christian Garcia", "position": "Field Service Technician", "phone": "346-673-1655", "email": "cgarcia@stinte.co"},
-    {"id": 24, "name": "Eddie Nelson", "position": "Electrical/Data Technician", "phone": "346-600-4147", "email": "enelson@stinte.co"},
-    {"id": 25, "name": "Jose Ornelas Jr.", "position": "Field Service Technician", "phone": "915-330-8921", "email": "jornelas@stinte.co"},
-    {"id": 26, "name": "Juan Paredes", "position": "Electrical Technician", "phone": "936-252-8573", "email": "jparedes@stinte.co"},
-    {"id": 27, "name": "Mauricio Ramirez", "position": "Field Service Technician", "phone": "915-282-7451", "email": "mramirez@stinte.co"},
-    {"id": 28, "name": "Nikolas Pedroza", "position": "Field Service Technician", "phone": "346-630-0140", "email": "npedroza@stinte.co"},
-    {"id": 29, "name": "Omar Ornelas", "position": "Field Service Technician", "phone": "346-673-1712", "email": "oornelas@stinte.co"},
-    {"id": 30, "name": "Phi Nguyen", "position": "Field Service Technician", "phone": "346-490-0943", "email": "pnguyen@stinte.co"},
-    {"id": 31, "name": "Raul Rivera", "position": "Electrical Technician", "phone": "346-490-0666", "email": "rrivera@stinte.co"},
-    {"id": 32, "name": "Ruben Jaquez", "position": "Field Service Technician", "phone": "346-673-0986", "email": "rjaquez@stinte.co"},
-    {"id": 33, "name": "Chavar Young(Canada)", "position": "Field Technician", "phone": "437-881-4734", "email": "chavar.young@stinte.co"},
-    {"id": 34, "name": "Ivan Kostenyuk(Canada)", "position": "Field Technician", "phone": "365-987-5169", "email": "ikostenyuk@stinte.co"},
-    {"id": 35, "name": "Rocky Gu(Canada)", "position": "Field Technician", "phone": "416-939-3289", "email": "zgu@stinte.co"},
-    {"id": 36, "name": "Receipts", "position": "Receipts", "phone": "936-697-5811", "email": "receipts@stinte.co"},
-]
-data_materials = [
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
-    {"category": "", "description": "", "manufacture": "", "vendor": ""},
 
-]
+@app.route("/visits", methods=["GET"])
+def get_visits():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-electrical_materials = [
-    {"description": "1 in Hole Strap", "manufacture": "ABB", "vendor": "Graybar"},
-    {"description": "4 in X 2 in Bell Boxes W/ 1 in Knock Outs", "manufacture": "ABB", "vendor": "Graybar"},
-    {"description": "1 in Metallic Seal Tite - 100 Ft Sections - Gray Liquidtight", "manufacture": "Anamet", "vendor": "Graybar"},
-    {"description": "One - Hole Lug Compressions (For wire size 12 to 10 AWG)", "manufacture": "Burndy", "vendor": "Graybar"},
-    {"description": "Single Gang Caddy Mounting Bracket (In wall)", "manufacture": "Caddy", "vendor": "Graybar"},
-    {"description": "1 in Seal Tite s", "manufacture": "Crouse Hinds", "vendor": "Graybar"},
-    {"description": "4 Sq Box W/ 1 in Knock Out", "manufacture": "Crouse Hinds", "vendor": "Graybar"},
-    {"description": "Beam Clamp", "manufacture": "Crouse Hinds", "vendor": "Graybar"},
-    {"description": "Single Gang Data Ring", "manufacture": "Crouse Hinds", "vendor": "Graybar"},
-    {"description": "1 in Split Loom - White", "manufacture": "Electriduc", "vendor": "STINTE STOCK"},
-    {"description": "THHN Grounding Wire, 10 AWG(Green)", "manufacture": "Generic", "vendor": "Graybar"},
-    {"description": "1 in Kellems Grip", "manufacture": "Hubbell Wiring Device", "vendor": "Graybar"},
-    {"description": "Weatherproof Box Bubble Cover", "manufacture": "Intermatic", "vendor": "Graybar"},
-    {"description": "Roll Of Black Electrical Tape", "manufacture": "3M", "vendor": "Graybar"},
+    # join visits with employees (primary tech) + departments
+    cur.execute("""
+        SELECT v.visit_id, v.visit_description, v.todo, v.required_certifications,
+               v.department_id, d.name AS department_name,
+               v.primary_technician_id, v.additional_technicians,
+               v.visit_date, v.duration_hours,
+               e.name AS primary_technician_name
+        FROM visits v
+        LEFT JOIN employees e ON v.primary_technician_id = e.id
+        LEFT JOIN departments d ON v.department_id = d.id
+        ORDER BY v.visit_id DESC;
+    """)
+    rows = cur.fetchall()
 
-]
+    # preload employees for mapping additional_technicians IDs -> names
+    cur.execute("SELECT id, name FROM employees;")
+    employee_map = {str(r[0]): r[1] for r in cur.fetchall()}
 
-@app.route("/materials/data", methods=["GET"])
-def get_data_materials():
-    return jsonify(data_materials)
+    cur.close()
+    conn.close()
 
-@app.route("/materials/electrical", methods=["GET"])
-def get_electrical_materials():
-    return jsonify(electrical_materials)
+    visits = []
+    for r in rows:
+        additional_ids = r["additional_technicians"] or []
+        # convert JSONB IDs to names
+        additional_names = [employee_map.get(str(i), f"ID:{i}") for i in additional_ids]
 
-@app.route("/company-info", methods=["GET"])
-def get_company_info():
-    company_info = {
-        "name": "STRATEGIC INFRASTRUCTURE TECHNOLOGIES",
-        "address": "21121 West Hardy Road, Houston, TX 77073",
-        "phone": "833-930-2583",
-        "email": "info@stinte.co",
-        "logo_url": f"{request.scheme}://{request.host}/uploads/logo.png"
-    }
-    return jsonify(company_info)
+        visits.append({
+            "visit_id": r["visit_id"],
+            "visit_description": r["visit_description"],
+            "todo": r["todo"],
+            "required_certifications": r["required_certifications"],
+            "department_id": r["department_id"],
+            "department_name": r["department_name"],
+            "primary_technician_id": r["primary_technician_id"],
+            "primary_technician_name": r["primary_technician_name"],
+            "additional_technicians": additional_names,
+            "visit_date": r["visit_date"],
+            "duration_hours": r["duration_hours"],
+        })
 
+    return jsonify(visits)
+
+
+
+# Employees
 @app.route("/employees", methods=["GET"])
 def get_employees():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, position, phone, email, certifications FROM employees ORDER BY id;")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    employees = [
+        {"id": r[0], "name": r[1], "position": r[2], "phone": r[3], "email": r[4], "certifications": r[5]}
+        for r in rows
+    ]
     return jsonify(employees)
 
-@app.route('/uploads/<path:filename>')
-def serve_upload(filename):
-    uploads_dir = os.path.join(app.root_path, 'uploads')
-    return send_from_directory(uploads_dir, filename)
 
-# CATCH-ALL — MUST BE LAST
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    static_dir = os.path.join(app.root_path, 'static')
-    if path != "" and os.path.exists(os.path.join(static_dir, path)):
-        return send_from_directory(static_dir, path)
-    else:
-        return send_from_directory(static_dir, 'index.html')
+# Data Materials
+@app.route("/materials/data", methods=["GET"])
+def get_data_materials():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, category, description, manufacture, vendor
+        FROM materials
+        WHERE type = 'data'
+        ORDER BY id;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    materials = [
+        {
+            "id": r[0],
+            "category": r[1],
+            "description": r[2],
+            "manufacture": r[3],
+            "vendor": r[4]
+        }
+        for r in rows
+    ]
+    return jsonify(materials)
+
+
+# Electrical Materials
+@app.route("/materials/electrical", methods=["GET"])
+def get_electrical_materials():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, description, manufacture, vendor
+        FROM materials
+        WHERE type = 'electrical'
+        ORDER BY id;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    materials = [
+        {
+            "id": r[0],
+            "description": r[1],
+            "manufacture": r[2],
+            "vendor": r[3]
+        }
+        for r in rows
+    ]
+    return jsonify(materials)
+
+
+# Company Info
+@app.route("/company-info", methods=["GET"])
+def company_info():
+    return jsonify({
+        "name": "STRATEGIC INFRASTRUCTURE TECHNOLOGIES",
+        "address": "21121 W Hardy Rd, Houston, TX 77073",
+        "phone": "(833) 930-2583",
+        "email": "info@stinte.co",
+        "logo_url": "http://localhost:5000/static/logo.png"
+    })
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True, port=5000)
