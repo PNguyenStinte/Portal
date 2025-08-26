@@ -5,70 +5,93 @@ import psycopg2.extras
 import os
 import json
 
+# Firebase Admin
+import firebase_admin
+from firebase_admin import auth, credentials
+
+# Initialize Flask
 app = Flask(__name__)
 CORS(app)
 
+# === Database connection ===
 def get_db_connection():
     conn = psycopg2.connect(
         host="localhost",
-        database="technician_portal",   # change if your DB name is different
-        user="postgres",                # change if your username is different
-        password="Stinte1!"             # change to your real password
+        database="technician_portal",   # change if needed
+        user="postgres",                # change if needed
+        password="Stinte1!"             # change if needed
     )
     return conn
 
-
-@app.route("/visits", methods=["GET"])
-def get_visits():
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-    # join visits with employees (primary tech) + departments
-    cur.execute("""
-        SELECT v.visit_id, v.visit_description, v.todo, v.required_certifications,
-               v.department_id, d.name AS department_name,
-               v.primary_technician_id, v.additional_technicians,
-               v.visit_date, v.duration_hours,
-               e.name AS primary_technician_name
-        FROM visits v
-        LEFT JOIN employees e ON v.primary_technician_id = e.id
-        LEFT JOIN departments d ON v.department_id = d.id
-        ORDER BY v.visit_id DESC;
-    """)
-    rows = cur.fetchall()
-
-    # preload employees for mapping additional_technicians IDs -> names
-    cur.execute("SELECT id, name FROM employees;")
-    employee_map = {str(r[0]): r[1] for r in cur.fetchall()}
-
-    cur.close()
-    conn.close()
-
-    visits = []
-    for r in rows:
-        additional_ids = r["additional_technicians"] or []
-        # convert JSONB IDs to names
-        additional_names = [employee_map.get(str(i), f"ID:{i}") for i in additional_ids]
-
-        visits.append({
-            "visit_id": r["visit_id"],
-            "visit_description": r["visit_description"],
-            "todo": r["todo"],
-            "required_certifications": r["required_certifications"],
-            "department_id": r["department_id"],
-            "department_name": r["department_name"],
-            "primary_technician_id": r["primary_technician_id"],
-            "primary_technician_name": r["primary_technician_name"],
-            "additional_technicians": additional_names,
-            "visit_date": r["visit_date"],
-            "duration_hours": r["duration_hours"],
-        })
-
-    return jsonify(visits)
+# === Firebase Admin init ===
+cred = credentials.Certificate(os.path.join(os.path.dirname(__file__), "firebase-admin.json"))
+firebase_admin.initialize_app(cred)
 
 
+# === LOGIN ENDPOINT ===
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    id_token = data.get("idToken")
 
-# Employees
+    if not id_token:
+        return jsonify({"success": False, "message": "No ID token provided"}), 400
+
+    try:
+        # Verify Firebase token
+        decoded_token = auth.verify_id_token(id_token)
+        email = decoded_token.get("email")
+        name = decoded_token.get("name", "")
+        uid = decoded_token.get("uid")
+
+        # Restrict to allowed domains
+        allowed_domains = ["stinte.co", "upandcs.com"]
+        if not any(email.endswith(f"@{d}") for d in allowed_domains):
+            return jsonify({"success": False, "message": "Only STINTE and UPANDCS are allowed"}), 403
+
+        # Check or create/update user in Postgres
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+        user = cur.fetchone()
+
+        if not user:
+            # Insert new user
+            cur.execute(
+                """
+                INSERT INTO users (firebase_uid, name, email, role)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, email, name, firebase_uid, role
+                """,
+                (uid, name, email, "technician")  # default role
+            )
+            user = cur.fetchone()
+        else:
+            # Update existing user to make sure firebase_uid + name are stored
+            cur.execute(
+                """
+                UPDATE users
+                SET firebase_uid = %s, name = %s
+                WHERE email = %s
+                RETURNING id, email, name, firebase_uid, role
+                """,
+                (uid, name, email)
+            )
+            user = cur.fetchone()
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({"success": True, "user": dict(user)}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 401
+
+
+
+# === EMPLOYEES ===
 @app.route("/employees", methods=["GET"])
 def get_employees():
     conn = get_db_connection()
@@ -85,7 +108,7 @@ def get_employees():
     return jsonify(employees)
 
 
-# Data Materials
+# === DATA MATERIALS ===
 @app.route("/materials/data", methods=["GET"])
 def get_data_materials():
     conn = get_db_connection()
@@ -101,19 +124,13 @@ def get_data_materials():
     conn.close()
 
     materials = [
-        {
-            "id": r[0],
-            "category": r[1],
-            "description": r[2],
-            "manufacture": r[3],
-            "vendor": r[4]
-        }
+        {"id": r[0], "category": r[1], "description": r[2], "manufacture": r[3], "vendor": r[4]}
         for r in rows
     ]
     return jsonify(materials)
 
 
-# Electrical Materials
+# === ELECTRICAL MATERIALS ===
 @app.route("/materials/electrical", methods=["GET"])
 def get_electrical_materials():
     conn = get_db_connection()
@@ -129,18 +146,13 @@ def get_electrical_materials():
     conn.close()
 
     materials = [
-        {
-            "id": r[0],
-            "description": r[1],
-            "manufacture": r[2],
-            "vendor": r[3]
-        }
+        {"id": r[0], "description": r[1], "manufacture": r[2], "vendor": r[3]}
         for r in rows
     ]
     return jsonify(materials)
 
 
-# Company Info
+# === COMPANY INFO ===
 @app.route("/company-info", methods=["GET"])
 def company_info():
     return jsonify({

@@ -30,15 +30,16 @@ function Scheduling() {
   const [showModal, setShowModal] = useState(false);
 
   const [newVisit, setNewVisit] = useState({
-    visit_description: "",
-    todo: "",
-    required_certifications: "",
-    department_name: "",
-    primary_technician: "",
-    additional_technicians: [],
-    visit_date: "",
-    duration: "",
-  });
+  visit_description: "",
+  todo: "",
+  required_certifications: "",
+  department_id: "",          // FIX
+  primary_technician_id: "",  // FIX
+  additional_technicians: [],
+  visit_date: "",
+  duration_hours: "",         // FIX
+});
+
 
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
 
@@ -107,26 +108,44 @@ function Scheduling() {
   }, [visits, search, sortConfig]);
 
   // Create Visit
-  const handleCreateVisit = async () => {
-    try {
-      await axios.post(`${API_BASE}/visits`, newVisit);
-      setShowModal(false);
-      setNewVisit({
-        visit_description: "",
-        todo: "",
-        required_certifications: "",
-        department_name: "",
-        primary_technician: "",
-        additional_technicians: [],
-        visit_date: "",
-        duration: "",
-      });
-      const resVisits = await axios.get(`${API_BASE}/visits`);
-      setVisits(resVisits.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Create Visit
+const handleCreateVisit = async () => {
+  try {
+    // Prepare payload to match backend schema
+    const payload = {
+      visit_description: newVisit.visit_description,
+      todo: newVisit.todo,
+      required_certifications: newVisit.required_certifications,
+      department_id: parseInt(newVisit.department_id, 10) || null,
+      primary_technician_id: parseInt(newVisit.primary_technician_id, 10) || null,
+      additional_technicians: newVisit.additional_technicians.map((id) => parseInt(id, 10)),
+      visit_date: newVisit.visit_date,
+      duration_hours: parseFloat(newVisit.duration) || null,  // rename + numeric
+    };
+
+    await axios.post(`${API_BASE}/visits`, payload);
+
+    // Reset form
+    setShowModal(false);
+    setNewVisit({
+      visit_description: "",
+      todo: "",
+      required_certifications: "",
+      department_id: "",
+      primary_technician_id: "",
+      additional_technicians: [],
+      visit_date: "",
+      duration: "",
+    });
+
+    // Reload visits
+    const resVisits = await axios.get(`${API_BASE}/visits`);
+    setVisits(resVisits.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -256,57 +275,60 @@ function Scheduling() {
 
               {/* Department dropdown */}
               <select
-                value={newVisit.department_name}
-                onChange={(e) =>
-                  setNewVisit({ ...newVisit, department_name: e.target.value })
-                }
-                className="w-full border px-3 py-2 rounded"
-              >
-                <option value="">Select Department</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                    </option>
-                ))}
+              value={newVisit.department_id}
+              onChange={(e) =>
+                setNewVisit({ ...newVisit, department_id: e.target.value })
+              }
+              className="w-full border px-3 py-2 rounded"
+             >
+              <option value="">Select Department</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
               </select>
+
 
               {/* Primary Technician dropdown */}
               <select
-                value={newVisit.primary_technician}
-                onChange={(e) =>
-                  setNewVisit({ ...newVisit, primary_technician: e.target.value })
-                }
-                className="w-full border px-3 py-2 rounded"
+              value={newVisit.primary_technician_id}
+              onChange={(e) =>
+                setNewVisit({ ...newVisit, primary_technician_id: e.target.value })
+              }
+              className="w-full border px-3 py-2 rounded"
               >
-                <option value="">Select Primary Technician</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
+              <option value="">Select Primary Technician</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                </option>
+              ))}
               </select>
+
 
               {/* Additional Technicians multi-select */}
               <select
-                multiple
-                value={newVisit.additional_technicians}
-                onChange={(e) =>
-                  setNewVisit({
-                    ...newVisit,
-                    additional_technicians: Array.from(
-                      e.target.selectedOptions,
-                      (opt) => opt.value
-                    ),
-                  })
-                }
-                className="w-full border px-3 py-2 rounded h-32"
-              >
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.name}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
+                  multiple
+                  value={newVisit.additional_technicians}
+                  onChange={(e) =>
+                    setNewVisit({
+                      ...newVisit,
+                      additional_technicians: Array.from(
+                        e.target.selectedOptions,
+                        (opt) => opt.value
+                      ),
+                    })
+                  }
+                  className="w-full border px-3 py-2 rounded h-32"
+                >
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>   {/* ✅ use emp.id here */}
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+
 
               <input
                 type="date"
