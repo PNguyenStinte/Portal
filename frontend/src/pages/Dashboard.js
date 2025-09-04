@@ -1,37 +1,135 @@
 // src/pages/Dashboard.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import logo from "../assets/logo.png";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { getAuth, signOut as firebaseSignOut } from "firebase/auth";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
 
 function Dashboard() {
-  const [news, setNews] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [currentUser, setCurrentUser] = useState(
+    JSON.parse(sessionStorage.getItem("user")) || null
+  );
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [costcoOpen, setCostcoOpen] = useState(false);
   const [stinteOpen, setStinteOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
   const [warehouseOpen, setWarehouseOpen] = useState(false);
+  const [calendarHeight, setCalendarHeight] = useState(600);
 
   const navigate = useNavigate();
   const auth = getAuth();
 
+  const BASE_URL =
+    process.env.NODE_ENV === "development"
+      ? "http://127.0.0.1:5000"
+      : "https://stinteportal-backend.onrender.com";
+
+  const UPLOAD_URL = `${BASE_URL}/api/events/upload/`;
+  const CURRENT_USER_URL = `${BASE_URL}/api/me/`;
+  const EVENTS_URL = `${BASE_URL}/api/events/`;
+
+  // Fetch current user
+  const fetchCurrentUser = useCallback(async () => {
+    if (!auth.currentUser) return;
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const res = await axios.get(CURRENT_USER_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      setCurrentUser(res.data);
+      sessionStorage.setItem("user", JSON.stringify(res.data));
+    } catch (err) {
+      console.error("Error fetching current user:", err.response?.data || err.message);
+    }
+  }, [auth, CURRENT_USER_URL]);
+
+  // Fetch events from database
+  const fetchEvents = useCallback(async () => {
+    if (!auth.currentUser) return;
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const res = await axios.get(EVENTS_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      setEvents(res.data);
+    } catch (err) {
+      console.error("Error fetching events:", err.response?.data || err.message);
+    }
+  }, [auth, EVENTS_URL]);
+
+  // Initial load
   useEffect(() => {
-    axios
-      .get("https://stinteportal-backend.onrender.com/Dashboard")
-      .then((res) => setNews(res.data))
-      .catch((err) => console.error(err));
+    if (auth.currentUser) {
+      fetchCurrentUser();
+      fetchEvents();
+    }
+  }, [auth.currentUser, fetchCurrentUser, fetchEvents]);
+
+  // Refresh events every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (auth.currentUser) fetchEvents();
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [auth.currentUser, fetchEvents]);
+
+  // Dynamic calendar height
+  useEffect(() => {
+    const handleResize = () => setCalendarHeight(window.innerHeight - 400);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // File upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post(UPLOAD_URL, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        withCredentials: true,
+      });
+
+      // ✅ Show success with number of inserted events
+      if (res.data.message) {
+        alert(res.data.message); // e.g., "✅ 100 events uploaded successfully, 5 rows skipped."
+        fetchEvents(); // refresh calendar immediately
+      } else {
+        alert("⚠️ Upload completed, but no details returned.");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert(`⚠️ Upload failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      e.target.value = ""; // allow re-upload of same file
+    }
+  };
+
+  // Sign out
   const handleSignOut = async () => {
     try {
       await firebaseSignOut(auth);
       sessionStorage.clear();
       localStorage.clear();
       navigate("/");
-    } catch (error) {
-      console.error("Error signing out:", error);
+    } catch (err) {
+      console.error("Sign out error:", err);
     }
   };
 
@@ -44,9 +142,29 @@ function Dashboard() {
           onClick={() => navigate("/dashboard")}
         >
           <img src={logo} alt="Logo" className="h-12" />
-
         </div>
+
+        {/* Sidebar Navigation */}
         <nav className="flex-1 p-4 space-y-2">
+          {/* BUILDOPS */}
+          <button
+            className="w-full text-left px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
+            onClick={() =>
+              window.open("https://leads.buildops.com/login", "_blank")
+            }
+          >
+            BUILDOPS
+          </button>
+
+          {/* CALENDAR */}
+          <button
+            className="w-full text-left px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
+            onClick={() => navigate("/calendar")}
+          >
+            CALENDAR
+          </button>
+
+          {/* COSTCO */}
           <div>
             <button
               onClick={() => setCostcoOpen(!costcoOpen)}
@@ -82,12 +200,8 @@ function Dashboard() {
               </div>
             )}
           </div>
-          <button
-            className="w-full text-left px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
-            onClick={() => window.open("https://leads.buildops.com/login", "_blank")}
-          >
-            BUILDOPS
-          </button>
+
+          {/* GOOGLE */}
           <button
             className="w-full text-left px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
             onClick={() => window.open("https://mail.google.com", "_blank")}
@@ -100,6 +214,8 @@ function Dashboard() {
           >
             GOOGLE CHAT
           </button>
+
+          {/* PROFILE */}
           <div>
             <button
               onClick={() => setProfileOpen(!profileOpen)}
@@ -110,6 +226,7 @@ function Dashboard() {
             </button>
             {profileOpen && (
               <div className="pl-6 space-y-1 mt-1">
+                {/* INSURANCE */}
                 <div>
                   <button
                     className="w-full flex justify-between items-center px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
@@ -145,6 +262,7 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
+
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
                   onClick={() =>
@@ -177,12 +295,8 @@ function Dashboard() {
               </div>
             )}
           </div>
-          <button
-                  className="w-full flex justify-between items-center px-4 py-2 rounded hover:bg-gray-200 font-bold text-xl"
-                  onClick={() => navigate("/schedule")}
-                >
-                  SCHEDULE
-          </button>
+
+          {/* STINTE */}
           <div>
             <button
               onClick={() => setStinteOpen(!stinteOpen)}
@@ -207,14 +321,17 @@ function Dashboard() {
                 </button>
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-                  onClick={() => window.open("/Daily Safety Meeting Checklist.pdf", "_blank")}
+                  onClick={() =>
+                    window.open("/Daily Safety Meeting Checklist.pdf", "_blank")
+                  }
                 >
                   Daily Safety Checklist
                 </button>
-
                 <button
                   className="block w-full text-left px-2 py-1 rounded hover:bg-gray-100 font-medium text-lg"
-                  onClick={() => window.open("/employee-handbook.pdf", "_blank")}
+                  onClick={() =>
+                    window.open("/employee-handbook.pdf", "_blank")
+                  }
                 >
                   Employee Handbook
                 </button>
@@ -249,6 +366,7 @@ function Dashboard() {
               </div>
             )}
           </div>
+
           {/* WAREHOUSE */}
           <div>
             <button
@@ -259,8 +377,9 @@ function Dashboard() {
               {warehouseOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             <div
-              className={`overflow-hidden transition-all duration-300 ease-in-out ${warehouseOpen ? "max-h-40" : "max-h-0"
-                }`}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                warehouseOpen ? "max-h-40" : "max-h-0"
+              }`}
             >
               <div className="pl-6 space-y-1 mt-1">
                 <button
@@ -278,7 +397,6 @@ function Dashboard() {
               </div>
             </div>
           </div>
-
         </nav>
 
         <div className="p-4 border-t">
@@ -291,24 +409,45 @@ function Dashboard() {
         </div>
       </aside>
 
-      {/* Main Content */}
+  {/* Main Content */}
       <main className="flex-1 p-6">
+        {/* News Board */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold">Company News Board</h2>
-          <div className="flex gap-2 items-center">
-          </div>
         </div>
+        {/* Calendar */}
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-2xl font-semibold mb-4">Event Calendar</h2>
 
-        <div className="space-y-4 mb-6">
-          {news.map((item) => (
-            <article key={item.id} className="bg-white p-4 rounded shadow">
-              <h3 className="text-xl font-bold">{item.title}</h3>
-              <p className="text-gray-600 text-sm">
-                By {item.author} on {item.date}
-              </p>
-              <p className="mt-2">{item.content}</p>
-            </article>
-          ))}
+          {currentUser?.role === "Scheduler" && (
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={handleFileUpload}
+              className="mb-4"
+            />
+          )}
+
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            events={events}
+            height={calendarHeight}
+            eventContent={(eventInfo) => {
+              const { title, extendedProps } = eventInfo.event;
+              return (
+                <div className="text-sm">
+                  <b>{title}</b>
+                  <div>Property: {extendedProps.property || "-"}</div>
+                  <div>Status: {extendedProps.status || "-"}</div>
+                  <div>Technician: {extendedProps.technician_name || "-"}</div>
+                  <div>Dept: {extendedProps.department_name || "-"}</div>
+                  <div>Job #: {extendedProps.job_number || "-"}</div>
+                  <div>Visit #: {extendedProps.visit_number || "-"}</div>
+                </div>
+              );
+            }}
+          />
         </div>
       </main>
     </div>

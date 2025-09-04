@@ -45,9 +45,9 @@ function Materials() {
   };
 
   useEffect(() => {
-    fetchData(`${API_BASE}/company-info`, setCompanyInfo);
-    fetchData(`${API_BASE}/materials/data`, setDataMaterials);
-    fetchData(`${API_BASE}/materials/electrical`, setElectricalMaterials);
+    fetchData(`${API_BASE}/api/company-info`, setCompanyInfo);
+    fetchData(`${API_BASE}/api/materials/data`, setDataMaterials);
+    fetchData(`${API_BASE}/api/materials/electrical`, setElectricalMaterials);
   }, [API_BASE]);
 
   // Sorting

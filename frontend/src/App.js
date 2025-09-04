@@ -5,6 +5,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import ContactInfo from "./pages/ContactInfo";
 import Materials from "./pages/Material";
 import Schedule from "./pages/Schedule";
+import Calendar from "./pages/Calendar";
 
 function App() {
   return (
@@ -28,7 +29,8 @@ function App() {
           }
         />
         <Route path="/contact_info" element={<ContactInfo />} />
-        <Route path="/schedule" element={<Schedule/>} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/schedule" element={<Schedule />} />
       </Routes>
     </BrowserRouter>
   );

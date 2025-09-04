@@ -28,10 +28,10 @@ function ContactInfo() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resCompany = await axios.get(`${API_BASE}/company-info`);
+        const resCompany = await axios.get(`${API_BASE}/api/company-info`);
         setCompanyInfo(resCompany.data);
 
-        const resContacts = await axios.get(`${API_BASE}/employees`);
+        const resContacts = await axios.get(`${API_BASE}/api/employees`);
         setContacts(resContacts.data);
       } catch (err) {
         console.error(err);
@@ -68,15 +68,15 @@ function ContactInfo() {
     return [...contacts]
       .filter((c) =>
         contactColumns
-          .map((col) => c[col.key])
+          .map((col) => String(c[col.key] || ""))
           .join(" ")
           .toLowerCase()
           .includes(search.toLowerCase())
       )
       .sort((a, b) => {
         if (!sortConfig.key) return 0;
-        const valA = a[sortConfig.key]?.toString().toLowerCase() || "";
-        const valB = b[sortConfig.key]?.toString().toLowerCase() || "";
+        const valA = String(a[sortConfig.key] || "").toLowerCase();
+        const valB = String(b[sortConfig.key] || "").toLowerCase();
         if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
         if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -108,9 +108,8 @@ function ContactInfo() {
                 <th
                   scope="col"
                   key={col.key}
-                  className={`px-4 py-3 text-left font-semibold text-sm uppercase tracking-wider cursor-pointer ${
-                    sortConfig.key === col.key ? "text-blue-500" : "text-gray-700"
-                  }`}
+                  className={`px-4 py-3 text-left font-semibold text-sm uppercase tracking-wider cursor-pointer ${sortConfig.key === col.key ? "text-blue-500" : "text-gray-700"
+                    }`}
                   onClick={() => handleSort(col.key)}
                 >
                   {col.label} {getSortIcon(col.key, sortConfig)}
