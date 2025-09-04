@@ -5,8 +5,7 @@ import psycopg2.extras
 import pandas as pd
 from difflib import get_close_matches
 from firebase_admin import auth
-from datetime import datetime
-
+from auth_utils import verify_token
 bp = Blueprint("events_routes", __name__)
 
 # === Name normalization ===
