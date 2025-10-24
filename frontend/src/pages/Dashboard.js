@@ -21,6 +21,8 @@ function Dashboard() {
   const [insuranceOpen, setInsuranceOpen] = useState(false);
   const [warehouseOpen, setWarehouseOpen] = useState(false);
   const [calendarHeight, setCalendarHeight] = useState(600);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const navigate = useNavigate();
   const auth = getAuth();
@@ -33,6 +35,18 @@ function Dashboard() {
   const UPLOAD_URL = `${BASE_URL}/api/events/upload/`;
   const CURRENT_USER_URL = `${BASE_URL}/api/me/`;
   const EVENTS_URL = `${BASE_URL}/api/events/`;
+
+  const getStatusColors = (status) => {
+    const STATUS_COLORS = {
+      complete: "bg-green-100 text-black border-green-300",
+      working: "bg-blue-100 text-black border-blue-300",
+      scheduled: "bg-yellow-100 text-black border-yellow-300",
+      unassigned: "bg-red-100 text-black border-red-300",
+    };
+    return STATUS_COLORS[status?.toLowerCase()] || "bg-gray-100 text-black border-gray-300";
+  };
+
+
 
   // Fetch current user
   const fetchCurrentUser = useCallback(async () => {
@@ -435,19 +449,47 @@ function Dashboard() {
             height={calendarHeight}
             eventContent={(eventInfo) => {
               const { title, extendedProps } = eventInfo.event;
+              const statusClasses = getStatusColors(extendedProps.status);
+
               return (
-                <div className="text-sm">
-                  <b>{title}</b>
-                  <div>Property: {extendedProps.property || "-"}</div>
-                  <div>Status: {extendedProps.status || "-"}</div>
+                <div
+                  className={`p-1 border rounded cursor-pointer ${statusClasses} text-black text-xs`}
+                  onClick={() => {
+                    setSelectedEvent({ title, ...extendedProps });
+                    setIsModalOpen(true);
+                  }}
+                >
+                  <div className="font-bold">{title}</div>
                   <div>Technician: {extendedProps.technician_name || "-"}</div>
-                  <div>Dept: {extendedProps.department_name || "-"}</div>
-                  <div>Job #: {extendedProps.job_number || "-"}</div>
-                  <div>Visit #: {extendedProps.visit_number || "-"}</div>
+                  <div>Status: {extendedProps.status || "-"}</div>
                 </div>
               );
             }}
           />
+
+          {/* Modal for full event details */}
+          {isModalOpen && selectedEvent && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded shadow-lg max-w-md w-full">
+                <h2 className="text-xl font-bold mb-2">{selectedEvent.title}</h2>
+                <p><b>Technician:</b> {selectedEvent.technician_name || "-"}</p>
+                <p><b>Status:</b> {selectedEvent.status || "-"}</p>
+                <p><b>Property:</b> {selectedEvent.property || "-"}</p>
+                <p><b>Department:</b> {selectedEvent.department_name || "-"}</p>
+                <p><b>Description:</b> {selectedEvent.description || "-"}</p>
+                <p><b>Job #:</b> {selectedEvent.job_number || "-"}</p>
+                <p><b>Visit #:</b> {selectedEvent.visit_number || "-"}</p>
+                <p><b>Additional Technicians:</b> {selectedEvent.additional_technicians || "-"}</p>
+                <p><b>Event Type:</b> {selectedEvent.event_type || "-"}</p>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
