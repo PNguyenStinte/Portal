@@ -177,13 +177,18 @@ def get_travel():
 
         travel_list = []
         for row in rows:
-            pst = row.get("planned_start_time_utc")
-            start_iso = pst.isoformat() if isinstance(pst, datetime) else str(pst)
+            planned = row.get("planned_start_time_utc")  # for travel
+            if isinstance(planned, datetime):
+                planned_iso = planned.isoformat()
+            else:
+                planned_iso = str(planned) if planned else None
+
             travel_list.append({
                 "id": row["id"],
                 "title": row["name"],
-                "start": start_iso,
+                "start": planned_iso,
                 "extendedProps": {
+                    "planned_start_time_utc": planned_iso,
                     "property": row.get("property"),
                     "status": row.get("status"),
                     "technician_name": row.get("technician_name"),
@@ -201,6 +206,7 @@ def get_travel():
     except Exception as e:
         print("❌ Error fetching travel:", e)
         return jsonify({"success": False, "message": str(e)}), 500
+
 
 # === Current user info ===
 @bp.route("/me/", methods=["GET", "OPTIONS"])

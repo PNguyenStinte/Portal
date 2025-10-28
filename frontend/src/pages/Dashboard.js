@@ -8,6 +8,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
+
 function Dashboard() {
   const [travel, setTravel] = useState([]);
   const [work, setWork] = useState([]);
@@ -36,28 +37,65 @@ function Dashboard() {
   const CURRENT_USER_URL = `${BASE_URL}/api/me/`;
 
   const getTitleColor = (title = "") => {
-    const t = title.toLowerCase();
-    if (t.includes("tech refresh"))
-      return "text-black-600 border-orange-600 bg-orange-100";
-    if (t.includes("warehouse closed"))
-      return "text-white border-gray-600 bg-black";
-    if (t.includes("rest"))
-      return "text-black-600 border-green-600 bg-green-100";
-    if (t.includes("no job scheduled"))
-      return "text-black-600 border-gray-600 bg-gray-100";
-    if (t.includes("travel"))
-      return "text-black-600 border-yellow-600 bg-yellow-100";
-    if (t.includes("office"))
-      return "text-black-600 border-blue-600 bg-blue-100";
-    if (t.includes("personal leave"))
-      return "text-black-600 border-purple-600 bg-purple-100";
-    if (t.includes("working"))
-      if (t.includes("personal leave"))
-      return "text-black-600 border-purple-600 bg-purple-100";
-    if (t.includes("pto"))
-      return "text-black-600 border-emerald-600 bg-emerald-100";
-    return "text-black border-gray-300 bg-white";
-  };
+  const t = title.trim().toLowerCase();
+
+// === Office / Closed / Holidays / No Job scheduled ===
+  if (t.includes("worked at office") || t.includes("working in office") || t.includes("costco corporate office"))
+    return "text-black border-blue-600 bg-blue-100";
+  if (t.includes("warehouse closed") || t.includes("closed") || t.includes("depot closed") || t.includes("costco closed") || t.includes("holiday") || t.includes("new year’s day") || t.includes("christmas"))
+    return "text-white border-black bg-black";
+  if (t.includes("no job scheduled"))
+    return "text-black border-gray-600 bg-gray-100";
+
+  // === Tech / Work / Projects ===
+  if (t.includes("tech refresh") || t.includes("imac tech refresh") || t.includes("depot tech refresh") || t.includes("new"))
+    return "text-black border-orange-600 bg-orange-100";
+  if (t.includes("fe reset") || t.includes("fck relo") || t.includes("working") || t.includes("swap") || t.includes("sco") || t.includes("membership"))
+    return "text-black border-red-600 bg-red-100";
+  if (t.includes("thin client") || t.includes("ap"))
+    return "text-white border-teal-600 bg-teal-700";
+  if (t.includes("edp"))
+    return "text-white border-purple-600 bg-purple-700";
+  if (t.includes("sls rfid portal") || t.includes("replace cut fiber"))
+    return "text-black border-indigo-600 bg-indigo-200";
+  if (t.includes("new bctr install") || t.includes("project walkthrough"))
+    return "text-black border-yellow-600 bg-yellow-100";
+
+  // === Travel / Drive / Away ===
+  if (t.includes("travel"))
+    return "text-black border-yellow-600 bg-yellow-100";
+  if (t.includes("drive") || t.includes("driving") || t.includes("#") || t.includes("van"))
+    return "text-white border-indigo-600 bg-indigo-700";
+  if (t.includes("out of state") || t.includes("away from home"))
+    return "text-black border-pink-600 bg-pink-100";
+
+  // === Rest / PTO / Personal leave / Holding ===
+  if (t.includes("personal leave") || t.includes("time off"))
+    return "text-black border-purple-600 bg-purple-100";
+  if (t.includes("pto"))
+    return "text-black border-emerald-600 bg-emerald-100";
+  if (t.includes("rest") || t.includes("half day"))
+    return "text-black border-green-600 bg-green-100";
+  if (t.includes("holding") || t.includes("per diem"))
+    return "text-white border-teal-600 bg-teal-700";
+
+   // === Partial Day / Late Start ===
+  if (t.includes("half day") || t.includes("late start") || t.includes("early"))
+    return "text-black border-orange-600 bg-orange-200";
+  
+  // === Meetings / Training / Orientation / Walks ===
+  if (t.includes("meeting") || t.includes("training") || t.includes("orientation") || t.includes("walk") || t.includes("mandatory") || t.includes("qa walk"))
+    return "text-black border-indigo-600 bg-indigo-100";
+
+  // === Test / Misc / Estimated project start ===
+  if (t.includes("test") || t.includes("estimated project start"))
+    return "text-black border-gray-600 bg-gray-100";
+
+  // === Default fallback ===
+  return "text-black border-gray-300 bg-white";
+};
+
+
 
   const fetchCurrentUser = useCallback(async () => {
     if (!auth.currentUser) return;
@@ -111,11 +149,12 @@ function Dashboard() {
 
 
   useEffect(() => {
-    const handleResize = () => setCalendarHeight(window.innerHeight - 400);
+    const handleResize = () => setCalendarHeight(window.innerHeight - 400); // was -400
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
 
   useEffect(() => {
     if (toast.message) {
@@ -461,82 +500,147 @@ function Dashboard() {
         <div className="bg-white p-4 rounded shadow">
           <h2 className="text-2xl font-semibold mb-4">Calendar</h2>
 
-{/* ✅ Calendar Upload/Buttons */}
-{currentUser?.role === "Scheduler" && (
-  <>
-    {/* Travel Upload / Delete */}
-    <div className="mb-6">
-      <label
-        htmlFor="file-upload-travel"
-        className="cursor-pointer inline-flex items-center px-4 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200 mr-2"
-      >
-        Upload Travel
-      </label>
-      <input
-        id="file-upload-travel"
-        type="file"
-        accept=".xlsx"
-        onChange={(e) => handleFileUpload(e, "travel")}
-        className="hidden"
-      />
+        {/* ✅ Calendar Upload/Buttons */}
+        {currentUser?.role === "Scheduler" && (
+          <>
+            {/* Travel Upload / Delete */}
+            <div className="mb-6">
+              <label
+                htmlFor="file-upload-travel"
+                className="cursor-pointer inline-flex items-center px-4 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200 mr-2"
+              >
+                Upload Travel
+              </label>
+              <input
+                id="file-upload-travel"
+                type="file"
+                accept=".xlsx"
+                onChange={(e) => handleFileUpload(e, "travel")}
+                className="hidden"
+              />
 
-      <button
-        onClick={() => setIsDeleteConfirmOpen({ open: true, type: "travel" })}
-        className="px-4 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200"
-      >
-        Delete All Travel
-      </button>
-    </div>
+              <button
+                onClick={() => setIsDeleteConfirmOpen({ open: true, type: "travel" })}
+                className="px-4 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200"
+              >
+                Delete All Travel
+              </button>
+            </div>
 
-    {/* Work Upload / Delete */}
-    <div className="mb-6">
-      <label
-        htmlFor="file-upload-work"
-        className="cursor-pointer inline-flex items-center px-4 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors duration-200 mr-2"
-      >
-        Upload Work
-      </label>
-      <input
-        id="file-upload-work"
-        type="file"
-        accept=".xlsx"
-        onChange={(e) => handleFileUpload(e, "work")}
-        className="hidden"
-      />
+            {/* Work Upload / Delete */}
+            <div className="mb-6">
+              <label
+                htmlFor="file-upload-work"
+                className="cursor-pointer inline-flex items-center px-4 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors duration-200 mr-2"
+              >
+                Upload Work
+              </label>
+              <input
+                id="file-upload-work"
+                type="file"
+                accept=".xlsx"
+                onChange={(e) => handleFileUpload(e, "work")}
+                className="hidden"
+              />
 
-      <button
-        onClick={() => setIsDeleteConfirmOpen({ open: true, type: "work" })}
-        className="px-4 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200"
-      >
-        Delete All Work
-      </button>
-    </div>
-  </>
-)}
+              <button
+                onClick={() => setIsDeleteConfirmOpen({ open: true, type: "work" })}
+                className="px-4 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200"
+              >
+                Delete All Work
+              </button>
+            </div>
+          </>
+        )}
 
-          <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            events={[...travel, ...work]}
-            height={calendarHeight}
-            eventContent={(eventInfo) => {
-              const { title, extendedProps } = eventInfo.event;
-              return (
-                <div
-                  className={`p-1 border rounded cursor-pointer text-xs ${getTitleColor(
-                    title
-                  )} font-sans`}
-                  onClick={() => {
-                    setSelectedTravel({ title, ...extendedProps });
-                    setIsModalOpen(true);
-                  }}
-                >
-                  <div className="font-bold">{title}</div>
-                  <div>Technician: {extendedProps.technician_name || "-"}</div>
-                </div>
-              );
-            }}
-          />
+        {/* ✅ Calendar Legend */}
+        <div className="flex flex-wrap gap-3 mb-4 text-xs font-medium">
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-yellow-100 border border-yellow-600 rounded"></span>
+            <span>Travel</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-red-100 border border-red-600 rounded"></span>
+            <span>Work / Projects</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-blue-100 border border-blue-600 rounded"></span>
+            <span>Office / Corporate</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-green-100 border border-green-600 rounded"></span>
+            <span>Rest / PTO</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-purple-100 border border-purple-600 rounded"></span>
+            <span>Training / Orientation</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-4 h-4 bg-black border border-black rounded"></span>
+            <span className="text-black">Closed / Holiday</span>
+          </div>
+        </div>
+        
+        {/* ✅ Calendar Component */}
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          events={[...travel, ...work]}
+          height={calendarHeight}
+          eventContent={(eventInfo) => {
+            const { title, extendedProps } = eventInfo.event;
+
+            // Prefer work time, fallback to travel time
+            const startRaw =
+              extendedProps.date_and_time || extendedProps.planned_start_time_utc;
+
+            let startFormatted = "-";
+
+            if (startRaw) {
+              try {
+                let parsedDate;
+
+                // ✅ Handle both "YYYY-MM-DD HH:mm:ss" and "YYYY-MM-DDTHH:mm:ss"
+                if (startRaw.includes("T")) {
+                  parsedDate = new Date(startRaw); // ISO style
+                } else if (startRaw.includes(" ")) {
+                  const [datePart, timePart] = startRaw.split(" ");
+                  parsedDate = new Date(`${datePart}T${timePart}`);
+                }
+
+                if (!isNaN(parsedDate)) {
+                  startFormatted = parsedDate.toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                } else {
+                  startFormatted = startRaw;
+                }
+              } catch (err) {
+                startFormatted = startRaw;
+              }
+            }
+
+            return (
+              <div
+                className={`p-1 border rounded cursor-pointer text-xs ${getTitleColor(
+                  title
+                )} font-sans`}
+                onClick={() => {
+                  setSelectedTravel({ title, ...extendedProps });
+                  setIsModalOpen(true);
+                }}
+              >
+                <div className="font-bold">{title}</div>
+                <div>Date: {startFormatted}</div>
+                <div>Technician: {extendedProps.technician_name || "-"}</div>
+              </div>
+            );
+          }}
+        />
 
           {isDeleteConfirmOpen.open && (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">

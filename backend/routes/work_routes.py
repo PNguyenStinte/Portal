@@ -169,33 +169,46 @@ def get_work():
         work_list = []
         for row in rows:
             dt = row.get("date_and_time")
-            start_iso = dt.isoformat() if isinstance(dt, datetime) else str(dt)
+
+            # ✅ Convert to ISO string for frontend
+            start_iso = None
+            if isinstance(dt, datetime):
+                start_iso = dt.strftime("%Y-%m-%dT%H:%M:%S")  # No timezone offset
+            elif isinstance(dt, str):
+                try:
+                    # Handle SQL strings like "2025-01-01 14:00:00"
+                    parsed = datetime.strptime(dt.strip(), "%Y-%m-%d %H:%M:%S")
+                    start_iso = parsed.strftime("%Y-%m-%dT%H:%M:%S")
+                except Exception:
+                    start_iso = None
+
             work_list.append({
-            "id": row["id"],
-            "title": row.get("description") or row.get("job") or "Work Event",
-            "start": start_iso,
-            "extendedProps": {
-                "property": row.get("property"),
-                "status": row.get("visit_status"),
-                "technician_name": row.get("primary_technician"),
-                "department_name": row.get("department"),
-                "customer_name": row.get("customer_name"),
-                "job_number": row.get("job"),
-                "visit_number": row.get("visit"),
-                "work_type": row.get("job_type"),
-                "address_line": row.get("address_line"),
-                "city": row.get("city"),
-                "state": row.get("state"),
-                "zipcode": row.get("zipcode"),
-                "event_type": "work"   # ✅ ADD THIS LINE
-            }
-        })
+                "id": row["id"],
+                "title": row.get("description") or row.get("job") or "Work Event",
+                "start": start_iso,
+                "extendedProps": {
+                    "property": row.get("property"),
+                    "status": row.get("visit_status"),
+                    "technician_name": row.get("primary_technician"),
+                    "department_name": row.get("department"),
+                    "customer_name": row.get("customer_name"),
+                    "job_number": row.get("job"),
+                    "visit_number": row.get("visit"),
+                    "work_type": row.get("job_type"),
+                    "address_line": row.get("address_line"),
+                    "city": row.get("city"),
+                    "state": row.get("state"),
+                    "zipcode": row.get("zipcode"),
+                    "event_type": "work",
+                    "date_and_time": start_iso,
+                }
+            })
+
         return jsonify(work_list), 200
 
     except Exception as e:
         print("❌ Error fetching work:", e)
         return jsonify({"success": False, "message": str(e)}), 500
-
 
 # === Delete all work events ===
 @bp.route("/work/delete_all/", methods=["DELETE", "OPTIONS"])
