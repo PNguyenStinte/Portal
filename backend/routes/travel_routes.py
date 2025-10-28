@@ -1,4 +1,4 @@
-# events_routes.py
+# travel_routes.py
 from flask import Blueprint, request, jsonify
 from db import get_db_connection
 import psycopg2.extras
@@ -8,7 +8,7 @@ from firebase_admin import auth
 from auth_utils import verify_token
 from datetime import datetime
 
-bp = Blueprint("events_routes", __name__)
+bp = Blueprint("travel_routes", __name__)
 
 # === Name normalization helpers ===
 def normalize_name(name):
@@ -40,9 +40,9 @@ def find_employee_id(tech_name_raw, employee_map):
     print(f"❌ No match for: {tech_name_raw}")
     return None
 
-# === Upload events from Excel ===
-@bp.route("/events/upload/", methods=["POST", "OPTIONS"])
-def upload_events():
+# === Upload travel from Excel ===
+@bp.route("/travel/upload/", methods=["POST", "OPTIONS"])
+def upload_travel():
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
@@ -65,18 +65,16 @@ def upload_events():
                 uploader_id = uploader["id"]
                 uploader_name = uploader["name"]
 
-        # --- Read Excel file ---
-        file = request.files.get("file")
-        if not file:
-            return jsonify({"error": "No file uploaded"}), 400
+        # --- Read Excel ---
+        file = request.files["file"]
         df = pd.read_excel(file)
 
         with get_db_connection() as conn:
             cur = conn.cursor()
+            # Build employee map once
             employee_map = build_employee_map(conn)
             unmatched_techs = set()
             inserted = 0
-            inserted_events = []
 
             for _, row in df.iterrows():
                 planned_start_time_utc = row.get("Planned Start Time Utc")
@@ -92,22 +90,24 @@ def upload_events():
                 additional_technicians = row.get("Additional Technicians")
                 last_updated_time_utc = row.get("Last Updated Time Utc")
 
+                # ✅ employee_id from Technician Name
                 employee_id = find_employee_id(technician_name, employee_map)
                 if not employee_id:
                     unmatched_techs.add(technician_name)
 
+                # ✅ last_updated_by is always uploader
                 last_updated_by = uploader_id
+                last_updated_by_name = uploader_name
 
                 cur.execute(
                     """
-                    INSERT INTO calendar_events (
+                    INSERT INTO travel_events (
                         employee_id, planned_start_time_utc, name, property,
                         job_number, visit_number, description, event_type,
                         technician_name, department_name, status, additional_technicians,
                         last_updated_by, last_updated_time_utc, created_at, last_updated_by_name
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
-                    RETURNING id, name, planned_start_time_utc
                     """,
                     (
                         employee_id,
@@ -124,10 +124,9 @@ def upload_events():
                         additional_technicians,
                         last_updated_by,
                         last_updated_time_utc,
-                        uploader_name
+                        last_updated_by_name
                     )
                 )
-                inserted_events.append(cur.fetchone())
                 inserted += 1
 
             conn.commit()
@@ -135,17 +134,16 @@ def upload_events():
 
         return jsonify({
             "message": f"✅ {inserted} events uploaded successfully.",
-            "unmatched_technicians": list(unmatched_techs),
-            "inserted_events": inserted_events
+            "unmatched_technicians": list(unmatched_techs)
         }), 200
 
     except Exception as e:
         print("❌ Error uploading events:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# === Fetch events for FullCalendar ===
-@bp.route("/events/", methods=["GET", "OPTIONS"])
-def get_events():
+# === Fetch travel for FullCalendar ===
+@bp.route("/travel/", methods=["GET", "OPTIONS"])
+def get_travel():
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"}), 200
 
@@ -154,18 +152,34 @@ def get_events():
         return error_resp, status
 
     try:
+        firebase_uid = decoded.get("uid")
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM calendar_events ORDER BY planned_start_time_utc ASC")
+
+        # Get user info
+        cur.execute("SELECT id, role FROM users WHERE firebase_uid = %s", (firebase_uid,))
+        user = cur.fetchone()
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        # Role-based filtering
+        if user["role"].lower() in ["scheduler", "admin"]:
+            cur.execute("SELECT * FROM travel_events ORDER BY planned_start_time_utc ASC")
+        else:
+            cur.execute(
+                "SELECT * FROM travel_events WHERE employee_id = %s ORDER BY planned_start_time_utc ASC",
+                (user["id"],)
+            )
+
         rows = cur.fetchall()
         cur.close()
         conn.close()
 
-        events = []
+        travel_list = []
         for row in rows:
             pst = row.get("planned_start_time_utc")
             start_iso = pst.isoformat() if isinstance(pst, datetime) else str(pst)
-            events.append({
+            travel_list.append({
                 "id": row["id"],
                 "title": row["name"],
                 "start": start_iso,
@@ -178,14 +192,14 @@ def get_events():
                     "job_number": row.get("job_number"),
                     "visit_number": row.get("visit_number"),
                     "additional_technicians": row.get("additional_technicians"),
-                    "event_type": row.get("event_type"),
+                    "travel_type": row.get("travel_type"),
                 }
             })
 
-        return jsonify(events), 200
+        return jsonify(travel_list), 200
 
     except Exception as e:
-        print("❌ Error fetching events:", e)
+        print("❌ Error fetching travel:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
 # === Current user info ===
@@ -218,3 +232,28 @@ def current_user():
     except Exception as e:
         print("❌ Error fetching user:", e)
         return jsonify({"success": False, "message": str(e)}), 500
+    
+
+# === Delete all travel events ===
+@bp.route("/travel/delete_all/", methods=["DELETE", "OPTIONS"])
+def delete_all_travel():
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+
+    decoded, error_resp, status = verify_token()
+    if error_resp:
+        return error_resp, status
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # ⚠️ Deletes all travel events. Add WHERE clause if needed.
+        cur.execute("DELETE FROM travel_events")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": "✅ All travel events deleted."}), 200
+    except Exception as e:
+        print("❌ Error deleting travel events:", e)
+        return jsonify({"error": str(e)}), 500
+
